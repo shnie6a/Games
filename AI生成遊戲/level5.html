@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>第五關：閃避障礙回家</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #222;
+      color: #fff;
+      font-family: "Noto Sans TC", sans-serif;
+      overflow: hidden;
+    }
+    #overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    #overlay h1 {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+    #overlay p {
+      font-size: 20px;
+      margin: 10px;
+      text-align: center;
+      max-width: 90%;
+    }
+    #startBtn {
+      padding: 10px 24px;
+      font-size: 20px;
+      background: #5599cc;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #startBtn:hover {
+      background: #88bbff;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(to bottom, #6cc, #fff);
+    }
+    #timer {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      font-size: 24px;
+      font-weight: bold;
+      color: white;
+      z-index: 5;
+    }
+    #resultOverlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      z-index: 20;
+    }
+    #resultOverlay h2 {
+      font-size: 36px;
+      margin-bottom: 20px;
+    }
+    #resultOverlay button {
+      padding: 10px 22px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      background: #5599cc;
+      color: white;
+      cursor: pointer;
+    }
+    #resultOverlay button:hover {
+      background: #88bbff;
+    }
+    audio {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div id="overlay">
+  <h1>第五關：回家的最後挑戰</h1>
+  <p>幫助老人閃避路上的障礙，撐過 10 秒，就能順利回到家！</p>
+  <button id="startBtn">開始遊戲</button>
+</div>
+<div id="timer">10</div>
+<canvas id="gameCanvas"></canvas>
+<div id="resultOverlay">
+  <h2 id="resultText"></h2>
+  <button onclick="location.reload()">重新開始</button>
+</div>
+<audio id="bgMusic" src="images/music.mp3" loop autoplay></audio>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const oldman = { x: canvas.width / 2 - 30, y: canvas.height - 80, w: 60, h: 60, color: "#fff", emoji: "👴🏻" };
+const obstacles = [];
+const emojis = ["\ud83d\ude97","\ud83d\ude95","\ud83d\ude9b","\ud83d\ude90","\ud83d\ude9a","\ud83d\ude9c","\ud83d\udeeb","\ud83c\udf3f","\ud83d\udc36","\ud83d\udc31","\ud83d\udc76","\ud83d\udc67"];
+let keys = {};
+let timer = 10;
+let gameOver = false;
+let countdownInterval;
+
+function drawOldman() {
+  ctx.font = "48px serif";
+  ctx.textAlign = "center";
+  ctx.fillText(oldman.emoji, oldman.x + oldman.w / 2, oldman.y + oldman.h);
+}
+
+function drawObstacles() {
+  for (let obs of obstacles) {
+    ctx.font = "36px serif";
+    ctx.fillText(obs.emoji, obs.x, obs.y);
+    obs.y += obs.speed;
+  }
+}
+
+function checkCollision() {
+  for (let obs of obstacles) {
+    if (obs.x > oldman.x - 30 && obs.x < oldman.x + oldman.w + 30 &&
+        obs.y > oldman.y - 30 && obs.y < oldman.y + oldman.h + 30) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function spawnObstacle() {
+  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+  const x = Math.random() * (canvas.width - 40);
+  const speed = 2 + Math.random() * 3;
+  obstacles.push({ x, y: -40, emoji, speed });
+}
+
+function drawHouse() {
+  ctx.font = "72px serif";
+  ctx.fillText("\ud83c\udfe1", oldman.x + 5, oldman.y - 100);
+}
+
+function gameLoop() {
+  if (gameOver) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawOldman();
+  drawObstacles();
+  if (checkCollision()) {
+    endGame(false);
+    return;
+  }
+  if (timer <= 0) {
+    drawHouse();
+    endGame(true);
+    return;
+  }
+  if (Math.random() < 0.05) spawnObstacle();
+  requestAnimationFrame(gameLoop);
+}
+
+function endGame(success) {
+  clearInterval(countdownInterval);
+  gameOver = true;
+  document.getElementById("resultOverlay").style.display = "flex";
+  const text = success ? "恭喜！老人成功回到家！\ud83c\udfe1" : "被障礙物撞到了，再試一次！";
+  document.getElementById("resultText").textContent = text;
+}
+
+function updatePosition() {
+  if (keys["ArrowLeft"]) oldman.x -= 6;
+  if (keys["ArrowRight"]) oldman.x += 6;
+  oldman.x = Math.max(0, Math.min(canvas.width - oldman.w, oldman.x));
+}
+
+setInterval(updatePosition, 20);
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+function startGame() {
+  document.getElementById("overlay").style.display = "none";
+  document.getElementById("bgMusic").play();
+  countdownInterval = setInterval(() => {
+    timer--;
+    document.getElementById("timer").textContent = timer;
+  }, 1000);
+  gameLoop();
+}
+
+document.getElementById("startBtn").onclick = startGame;
+</script>
+</body>
+</html>

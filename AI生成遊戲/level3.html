@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>第3關：尋找遺失物品</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #222;
+      color: #eee;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    #game-canvas {
+      display: block;
+      background: #7b9acc;
+    }
+    #start-screen, #end-screen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+      z-index: 10;
+      text-align: center;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      margin-top: 20px;
+      border: none;
+      border-radius: 5px;
+      background: #007bff;
+      color: #fff;
+      user-select: none;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="start-screen">
+  <p>請協助老人尋找 10 件遺失的物品！</p>
+  <p>避開危險區（⛔），用鍵盤方向鍵 ← → ↑ ↓ 控制老人移動。</p>
+  <button id="start-btn">開始遊戲</button>
+</div>
+
+<div id="end-screen" style="display: none;">
+  <p id="end-message"></p>
+  <button id="retry-btn">重新挑戰</button>
+  <button id="next-btn" style="display: none;">前往下一關</button>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+  const startScreen = document.getElementById('start-screen');
+  const endScreen = document.getElementById('end-screen');
+  const startBtn = document.getElementById('start-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const endMessage = document.getElementById('end-message');
+
+  // 背景音樂
+  const bgm = new Audio("images/music.mp3");
+  bgm.loop = true;
+  bgm.volume = 0.5;
+
+  let gameWidth = window.innerWidth;
+  let gameHeight = window.innerHeight;
+  canvas.width = gameWidth;
+  canvas.height = gameHeight;
+
+  const player = { x: 100, y: 100, size: 48, speed: 4 };
+  const items = [];
+  const dangerZones = [];
+  const keysPressed = {};
+  const totalItems = 10;
+
+  // 物品表情庫，多樣化
+  const itemEmojis = ["👓", "📖", "💊", "📷", "🧣", "🧤", "🧥", "🩺", "🪪", "📔", "📎", "🪙", "🧳"];
+
+  // 調整畫布大小時同步更新
+  window.addEventListener('resize', () => {
+    gameWidth = window.innerWidth;
+    gameHeight = window.innerHeight;
+    canvas.width = gameWidth;
+    canvas.height = gameHeight;
+  });
+
+  // 偵測鍵盤按鍵狀態
+  window.addEventListener('keydown', e => keysPressed[e.key] = true);
+  window.addEventListener('keyup', e => keysPressed[e.key] = false);
+
+  function resetPlayer() {
+    player.x = gameWidth / 2;
+    player.y = gameHeight - 100;
+  }
+
+  // 產生隨機物品
+  function spawnItems() {
+    items.length = 0;
+    const itemPool = [...itemEmojis, ...itemEmojis];
+    const count = 20 + Math.floor(Math.random() * 10); // 20～30個物品供選
+    for (let i = 0; i < count; i++) {
+      const emoji = itemPool[Math.floor(Math.random() * itemPool.length)];
+      items.push({
+        x: Math.random() * (canvas.width - 30),
+        y: Math.random() * (canvas.height - 100),
+        emoji: emoji,
+        collected: false,
+      });
+    }
+  }
+
+  // 產生危險區塊
+  function spawnDangerZones() {
+    dangerZones.length = 0;
+    for (let i = 0; i < 5; i++) {
+      dangerZones.push({
+        x: Math.random() * (canvas.width - 60),
+        y: Math.random() * (canvas.height - 60),
+        width: 60,
+        height: 60
+      });
+    }
+  }
+
+  // 繪製遊戲元素
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // ⛔ 危險區
+    dangerZones.forEach(zone => {
+      ctx.font = "48px sans-serif";
+      ctx.fillText("⛔", zone.x, zone.y + 40);
+    });
+
+    // 👴 玩家
+    ctx.font = "48px sans-serif";
+    ctx.fillText("👴🏻", player.x, player.y + player.size);
+
+    // 🧳 物品
+    items.forEach(item => {
+      if (!item.collected) {
+        ctx.font = "36px sans-serif";
+        ctx.fillText(item.emoji, item.x, item.y + 30);
+      }
+    });
+
+    // 已收集物品計數
+    const collectedCount = items.filter(i => i.collected).length;
+    ctx.fillStyle = "#fff";
+    ctx.font = "20px Arial";
+    ctx.fillText(`已收集：${collectedCount}/${totalItems}`, 20, 30);
+  }
+
+  // 更新遊戲狀態
+  function update() {
+    if (keysPressed['ArrowLeft']) player.x -= player.speed;
+    if (keysPressed['ArrowRight']) player.x += player.speed;
+    if (keysPressed['ArrowUp']) player.y -= player.speed;
+    if (keysPressed['ArrowDown']) player.y += player.speed;
+
+    player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+    player.y = Math.max(0, Math.min(canvas.height - player.size, player.y));
+
+    // 判斷碰到危險區
+    for (const zone of dangerZones) {
+      if (
+        player.x < zone.x + zone.width &&
+        player.x + player.size > zone.x &&
+        player.y < zone.y + zone.height &&
+        player.y + player.size > zone.y
+      ) {
+        endGame(false);
+        return;
+      }
+    }
+
+    // 收集物品判斷
+    for (const item of items) {
+      if (!item.collected &&
+          Math.abs(player.x - item.x) < 40 &&
+          Math.abs(player.y - item.y) < 40) {
+        item.collected = true;
+      }
+    }
+
+    // 過關判定
+    const collected = items.filter(i => i.collected).length;
+    if (collected >= totalItems) {
+      endGame(true);
+    }
+  }
+
+  // 遊戲主迴圈
+  function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // 開始遊戲初始化
+  function startGame() {
+    resetPlayer();
+    spawnItems();
+    spawnDangerZones();
+    gameLoop();
+    bgm.play();
+    startScreen.style.display = "none";
+    endScreen.style.display = "none";
+  }
+
+  // 結束遊戲顯示結果
+  function endGame(success) {
+    endScreen.style.display = "flex";
+    endMessage.textContent = success
+      ? "恭喜！你成功找回 10 件遺失物品！"
+      : "你進入了危險區，請再試一次。";
+    nextBtn.style.display = success ? "inline-block" : "none";
+    bgm.pause();
+    bgm.currentTime = 0;
+  }
+
+  startBtn.onclick = startGame;
+  retryBtn.onclick = startGame;
+ nextBtn.onclick = () => window.location.href = "level4.html";
+})();
+</script>
+
+</body>
+</html>

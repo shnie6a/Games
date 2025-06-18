@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>第1關：安全斑馬線</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #222;
+      color: #eee;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    #game-canvas {
+      display: block;
+      background: #777;
+    }
+    #start-screen, #end-screen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+      z-index: 10;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      margin-top: 20px;
+      border: none;
+      border-radius: 5px;
+      background: #28a745;
+      color: #fff;
+    }
+    button:hover {
+      background: #218838;
+    }
+  </style>
+</head>
+<body>
+
+<audio id="bg-music" src="images/music.mp3" loop></audio>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="start-screen">
+  <p>請協助老人穿越馬路，避開車輛，</p>
+  <p>到達紅綠燈旁的終點！</p>
+  <p>操作說明：使用鍵盤方向鍵 ← → ↑ ↓ 控制老人移動</p>
+  <button id="start-btn">開始遊戲</button>
+</div>
+
+<div id="end-screen" style="display: none;">
+  <p id="end-message"></p>
+  <button id="retry-btn">重新挑戰</button>
+  <button id="next-btn" style="display: none;">前往下一關</button>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+  const startScreen = document.getElementById('start-screen');
+  const endScreen = document.getElementById('end-screen');
+  const startBtn = document.getElementById('start-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const endMessage = document.getElementById('end-message');
+
+  // 取得背景音樂元素
+  const bgm = document.getElementById('bg-music');
+  bgm.volume = 0.4;
+
+  let gameWidth = window.innerWidth;
+  let gameHeight = window.innerHeight;
+
+  canvas.width = gameWidth;
+  canvas.height = gameHeight;
+
+  window.addEventListener('resize', () => {
+    gameWidth = window.innerWidth;
+    gameHeight = window.innerHeight;
+    canvas.width = gameWidth;
+    canvas.height = gameHeight;
+    resetPlayer();
+  });
+
+  let keysPressed = {};
+  const player = {
+    x: 0,
+    y: 0,
+    width: 64,
+    height: 64,
+    speed: 5,
+  };
+
+  const lanesY = [gameHeight * 0.4, gameHeight * 0.5, gameHeight * 0.6, gameHeight * 0.7];
+  const cars = [];
+  let gameRunning = false;
+
+  function initCars() {
+    cars.length = 0;
+    lanesY.forEach(y => {
+      const direction = Math.random() > 0.5 ? 'left' : 'right';
+      const speed = 2 + Math.random() * 3;
+      const width = 100;
+      const height = 50;
+      const x = direction === 'left' ? gameWidth + Math.random() * 300 : -width - Math.random() * 300;
+      cars.push({x, y, width, height, speed, direction});
+    });
+  }
+
+  function resetPlayer() {
+    player.x = gameWidth / 2 - player.width / 2;
+    player.y = gameHeight - player.height - 20;
+  }
+
+  window.addEventListener('keydown', e => keysPressed[e.key] = true);
+  window.addEventListener('keyup', e => keysPressed[e.key] = false);
+
+  function update() {
+    if (!gameRunning) return;
+
+    if (keysPressed['ArrowLeft']) player.x -= player.speed;
+    if (keysPressed['ArrowRight']) player.x += player.speed;
+    if (keysPressed['ArrowUp']) player.y -= player.speed;
+    if (keysPressed['ArrowDown']) player.y += player.speed;
+
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > gameWidth) player.x = gameWidth - player.width;
+    if (player.y < 0) player.y = 0;
+    if (player.y + player.height > gameHeight) player.y = gameHeight - player.height;
+
+    cars.forEach(car => {
+      if (car.direction === 'left') {
+        car.x -= car.speed;
+        if (car.x + car.width < 0) car.x = gameWidth;
+      } else {
+        car.x += car.speed;
+        if (car.x > gameWidth) car.x = -car.width;
+      }
+    });
+
+    for (const car of cars) {
+      if (
+        player.x < car.x + car.width &&
+        player.x + player.width > car.x &&
+        player.y < car.y + car.height &&
+        player.y + player.height > car.y
+      ) {
+        endGame(false);
+        return;
+      }
+    }
+
+    if (player.y < 60) {
+      endGame(true);
+      return;
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, gameWidth, gameHeight);
+
+    ctx.fillStyle = '#555';
+    ctx.fillRect(0, 0, gameWidth, gameHeight);
+
+    ctx.font = "48px sans-serif";
+    ctx.fillText("🏡", gameWidth / 2 - 24, 60);
+
+    cars.forEach(car => {
+      ctx.font = "40px sans-serif";
+      ctx.fillText(car.direction === 'left' ? "🚗" : "🚌", car.x, car.y + 40);
+    });
+
+    ctx.font = "48px sans-serif";
+    ctx.fillText("👴🏻", player.x, player.y + 48);
+  }
+
+  function gameLoop() {
+    if (!gameRunning) return;
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  function startGame() {
+    bgm.play().catch(e => {
+      console.log("背景音樂播放失敗（瀏覽器限制）:", e);
+    });
+    gameRunning = true;
+    resetPlayer();
+    initCars();
+    startScreen.style.display = 'none';
+    endScreen.style.display = 'none';
+    gameLoop();
+  }
+
+  function endGame(success) {
+    gameRunning = false;
+    endScreen.style.display = 'flex';
+    startScreen.style.display = 'none';
+    endMessage.textContent = success ? "成功通過第1關！" : "碰撞車輛了，請重新挑戰！";
+    retryBtn.style.display = "inline-block";
+    nextBtn.style.display = success ? "inline-block" : "none";
+  }
+
+  retryBtn.onclick = () => startGame();
+  nextBtn.onclick = () => {
+    window.location.href = "level2.html"; // ← 這行改成跳到第二關
+  };
+  startBtn.onclick = () => startGame();
+
+})();
+</script>
+
+</body>
+</html>
