@@ -85,6 +85,7 @@
       background: #5599cc;
       color: white;
       cursor: pointer;
+      margin-top: 10px;
     }
     #resultOverlay button:hover {
       background: #88bbff;
@@ -104,7 +105,7 @@
 <canvas id="gameCanvas"></canvas>
 <div id="resultOverlay">
   <h2 id="resultText"></h2>
-  <button onclick="location.reload()">重新開始</button>
+  <button id="restartBtn">重新開始</button>
 </div>
 <audio id="bgMusic" src="images/music.mp3" loop autoplay></audio>
 <script>
@@ -113,9 +114,9 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const oldman = { x: canvas.width / 2 - 30, y: canvas.height - 80, w: 60, h: 60, color: "#fff", emoji: "👴🏻" };
+const oldman = { x: canvas.width / 2 - 30, y: canvas.height - 80, w: 60, h: 60, emoji: "👴🏻" };
 const obstacles = [];
-const emojis = ["\ud83d\ude97","\ud83d\ude95","\ud83d\ude9b","\ud83d\ude90","\ud83d\ude9a","\ud83d\ude9c","\ud83d\udeeb","\ud83c\udf3f","\ud83d\udc36","\ud83d\udc31","\ud83d\udc76","\ud83d\udc67"];
+const emojis = ["🚗","🚕","🚌","🚐","🚚","🚜","🛫","🌿","🐶","🐱","👶","👧"];
 let keys = {};
 let timer = 10;
 let gameOver = false;
@@ -154,7 +155,7 @@ function spawnObstacle() {
 
 function drawHouse() {
   ctx.font = "72px serif";
-  ctx.fillText("\ud83c\udfe1", oldman.x + 5, oldman.y - 100);
+  ctx.fillText("🏡", oldman.x + 5, oldman.y - 100);
 }
 
 function gameLoop() {
@@ -178,9 +179,24 @@ function gameLoop() {
 function endGame(success) {
   clearInterval(countdownInterval);
   gameOver = true;
+  const resultText = document.getElementById("resultText");
+  const restartBtn = document.getElementById("restartBtn");
   document.getElementById("resultOverlay").style.display = "flex";
-  const text = success ? "恭喜！老人成功回到家！\ud83c\udfe1" : "被障礙物撞到了，再試一次！";
-  document.getElementById("resultText").textContent = text;
+
+  if (success) {
+    resultText.textContent = "恭喜！老人成功回到家！🏡";
+    restartBtn.textContent = "回到第一關";
+    restartBtn.onclick = () => {
+      // 這裡改成你的第一關網址或檔名
+      window.location.href = "level1.html";
+    };
+  } else {
+    resultText.textContent = "被障礙物撞到了，再試一次！";
+    restartBtn.textContent = "重新開始";
+    restartBtn.onclick = () => {
+      location.reload();
+    };
+  }
 }
 
 function updatePosition() {
